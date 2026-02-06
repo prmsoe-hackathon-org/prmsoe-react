@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Upload, ArrowRight, CheckCircle2, FileSpreadsheet, Loader2 } from "lucide-react";
+import { Upload, ArrowRight, CheckCircle2, FileSpreadsheet, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadCSV, getJobStatus } from "@/services/api";
+import { uploadCSV, getJobStatus, getContacts, ContactItem } from "@/services/api";
 
 type UploadState = "idle" | "uploading" | "enriching" | "done" | "error";
 
@@ -22,6 +22,31 @@ export default function NetworkIngest() {
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const PAGE_SIZE = 10;
+  const [contacts, setContacts] = useState<ContactItem[]>([]);
+  const [contactsTotal, setContactsTotal] = useState(0);
+  const [contactsPage, setContactsPage] = useState(0);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const totalPages = Math.max(1, Math.ceil(contactsTotal / PAGE_SIZE));
+
+  const fetchContacts = async (page: number) => {
+    if (!user) return;
+    setContactsLoading(true);
+    try {
+      const res = await getContacts(user.id, PAGE_SIZE, page * PAGE_SIZE);
+      setContacts(res.contacts);
+      setContactsTotal(res.total);
+    } catch {
+      // silent — list is supplementary
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchContacts(contactsPage);
+  }, [contactsPage, user]);
 
   useEffect(() => {
     return () => {
@@ -74,6 +99,8 @@ export default function NetworkIngest() {
             if (status.status === "FAILED") {
               setErrorMessage("Enrichment failed. Some contacts may not have drafts.");
             }
+            setContactsPage(0);
+            fetchContacts(0);
           }
         } catch {
           // Polling error — keep trying
@@ -250,6 +277,89 @@ export default function NetworkIngest() {
           </motion.div>
         )}
       </motion.div>
+
+      {/* Contacts List */}
+      {contactsTotal > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mt-10"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground">
+              Your Contacts{" "}
+              <span className="text-sm font-normal text-muted-foreground">
+                ({contactsTotal})
+              </span>
+            </h2>
+          </div>
+
+          {contactsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {contacts.map((c) => (
+                <div
+                  key={c.id}
+                  className="glass flex items-center justify-between rounded-lg border border-border px-4 py-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {c.full_name}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {c.raw_role}{c.raw_role && c.company_name ? " · " : ""}{c.company_name}
+                    </p>
+                  </div>
+                  <span
+                    className={`ml-3 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      c.status === "DRAFT_READY"
+                        ? "bg-green-500/10 text-green-400"
+                        : c.status === "SENT"
+                          ? "bg-blue-500/10 text-blue-400"
+                          : c.status === "RESEARCHING"
+                            ? "bg-yellow-500/10 text-yellow-400"
+                            : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {c.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={contactsPage === 0}
+                onClick={() => setContactsPage((p) => p - 1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {contactsPage + 1} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                disabled={contactsPage >= totalPages - 1}
+                onClick={() => setContactsPage((p) => p + 1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </motion.div>
+      )}
     </div>
   );
 }

@@ -31,6 +31,22 @@ export interface JobStatus {
   failed_count: number;
 }
 
+export interface ContactItem {
+  id: string;
+  full_name: string;
+  raw_role: string;
+  company_name: string;
+  linkedin_url: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ContactsResponse {
+  contacts: ContactItem[];
+  total: number;
+  has_more: boolean;
+}
+
 export interface DraftItem {
   contact_id: string;
   full_name: string;
@@ -80,6 +96,12 @@ export interface DashboardResponse {
     sent: number;
     replied: number;
     reply_rate: number;
+    replied_messages: {
+      full_name: string;
+      company_name: string;
+      message_body: string;
+      sent_at: string;
+    }[];
   }[];
 }
 
@@ -94,6 +116,16 @@ export function uploadCSV(file: File, userId: string): Promise<UploadResponse> {
 
 export function getJobStatus(jobId: string, userId: string): Promise<JobStatus> {
   return request(`/ingest/status/${jobId}?user_id=${encodeURIComponent(userId)}`);
+}
+
+export function getContacts(
+  userId: string,
+  limit = 10,
+  offset = 0
+): Promise<ContactsResponse> {
+  return request(
+    `/contacts/list?user_id=${encodeURIComponent(userId)}&limit=${limit}&offset=${offset}`
+  );
 }
 
 export function getDrafts(
