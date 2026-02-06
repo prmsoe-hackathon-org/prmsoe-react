@@ -86,6 +86,19 @@ export interface FeedbackQueueResponse {
   pending: FeedbackItem[];
 }
 
+export interface ComposioStatusResponse {
+  connected: boolean;
+}
+
+export interface ComposioConnectResponse {
+  redirect_url: string;
+}
+
+export interface AutoDetectResponse {
+  detected: { full_name: string; company_name: string }[];
+  count: number;
+}
+
 export interface DashboardResponse {
   total_sent: number;
   total_completed: number;
@@ -171,4 +184,24 @@ export function recordSwipe(
 
 export function getDashboard(userId: string): Promise<DashboardResponse> {
   return request(`/analytics/dashboard?user_id=${encodeURIComponent(userId)}`);
+}
+
+export function getComposioStatus(userId: string): Promise<ComposioStatusResponse> {
+  return request(`/composio/status?user_id=${encodeURIComponent(userId)}`);
+}
+
+export function composioConnect(userId: string, callbackUrl: string): Promise<ComposioConnectResponse> {
+  return request("/composio/connect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId, callback_url: callbackUrl }),
+  });
+}
+
+export function autoDetectReplies(userId: string): Promise<AutoDetectResponse> {
+  return request("/feedback/auto-detect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId }),
+  });
 }

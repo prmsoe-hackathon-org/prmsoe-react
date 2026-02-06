@@ -1,12 +1,19 @@
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, MessageCircle, Ghost, AlertTriangle, Loader2 } from "lucide-react";
+import { RefreshCw, MessageCircle, Ghost, AlertTriangle, Loader2, Mail, CheckCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { getFeedbackQueue, recordSwipe, type FeedbackItem } from "@/services/api";
+import {
+  getFeedbackQueue,
+  recordSwipe,
+  getComposioStatus,
+  composioConnect,
+  autoDetectReplies,
+  type FeedbackItem,
+} from "@/services/api";
 
 const strategyColors: Record<string, string> = {
   PAIN_POINT: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -28,6 +35,53 @@ export default function Loop() {
   });
 
   const queue = data?.pending ?? [];
+
+  // Gmail connection status
+  const { data: gmailStatus, refetch: refetchGmailStatus } = useQuery({
+    queryKey: ["composioStatus", user?.id],
+    queryFn: () => getComposioStatus(user!.id),
+    enabled: !!user,
+  });
+
+  const gmailConnected = gmailStatus?.connected ?? false;
+
+  // Re-check Gmail status when user returns from OAuth tab
+  const handleFocus = useCallback(() => {
+    if (user && !gmailConnected) refetchGmailStatus();
+  }, [user, gmailConnected, refetchGmailStatus]);
+
+  useEffect(() => {
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [handleFocus]);
+
+  // Connect Gmail mutation
+  const connectMutation = useMutation({
+    mutationFn: () => composioConnect(user!.id, window.location.href),
+    onSuccess: (data) => {
+      window.open(data.redirect_url, "_blank");
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to connect Gmail", description: err.message, variant: "destructive" });
+    },
+  });
+
+  // Auto-detect replies mutation
+  const scanMutation = useMutation({
+    mutationFn: () => autoDetectReplies(user!.id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["feedbackQueue", user?.id] });
+      toast({
+        title: data.count > 0 ? `${data.count} replies detected` : "No new replies found",
+        description: data.count > 0
+          ? data.detected.map((d) => d.full_name).join(", ")
+          : "Try again later or manually record feedback below.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Scan failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   useEffect(() => {
     if (error) {
@@ -88,6 +142,54 @@ export default function Loop() {
           <p className="mt-2 text-sm text-muted-foreground">
             Record outcomes for your sent outreach. This trains the AI for better future drafts.
           </p>
+        </div>
+
+        {/* Gmail Connect / Scan Banner */}
+        <div className="mb-6">
+          {!gmailConnected ? (
+            <div className="glass rounded-xl border border-border p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Mail className="h-5 w-5 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Connect Gmail to auto-detect replies
+                </span>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => connectMutation.mutate()}
+                disabled={connectMutation.isPending}
+                className="rounded-lg text-xs"
+              >
+                {connectMutation.isPending ? (
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                ) : (
+                  <Mail className="mr-1.5 h-3 w-3" />
+                )}
+                Connect Gmail
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-400" />
+                <span className="text-xs font-medium text-green-400">Gmail connected</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => scanMutation.mutate()}
+                disabled={scanMutation.isPending}
+                className="rounded-lg border-green-500/30 text-green-400 hover:bg-green-500/10 text-xs"
+              >
+                {scanMutation.isPending ? (
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                ) : (
+                  <Search className="mr-1.5 h-3 w-3" />
+                )}
+                Scan for Replies
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Queue */}
