@@ -4,6 +4,7 @@ import { FlaskConical, ExternalLink, Copy, Send, Loader2, ChevronDown } from "lu
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { getDrafts, sendOutreach, type DraftItem } from "@/services/api";
@@ -20,59 +21,66 @@ export default function CommandCenter() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [editedMessages, setEditedMessages] = useState<Record<string, string>>({});
-  const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
   const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
-  const fetchDrafts = async (newOffset = 0, append = false) => {
-    if (!user) return;
-    if (!append) setLoading(true);
-    else setLoadingMore(true);
+  const { data: initialData, isLoading, error } = useQuery({
+    queryKey: ["drafts", user?.id],
+    queryFn: () => getDrafts(user!.id, 20, 0),
+    enabled: !!user,
+  });
 
+  useEffect(() => {
+    if (initialData) {
+      setDrafts(initialData.drafts);
+      setTotal(initialData.total);
+      setHasMore(initialData.has_more);
+      setOffset(initialData.drafts.length);
+    }
+  }, [initialData]);
+
+  useEffect(() => {
+    if (error) {
+      toast({ title: "Failed to load drafts", description: (error as Error).message, variant: "destructive" });
+    }
+  }, [error]);
+
+  const fetchMore = async () => {
+    if (!user) return;
+    setLoadingMore(true);
     try {
-      const res = await getDrafts(user.id, 20, newOffset);
-      setDrafts((prev) => (append ? [...prev, ...res.drafts] : res.drafts));
+      const res = await getDrafts(user.id, 20, offset);
+      setDrafts((prev) => [...prev, ...res.drafts]);
       setTotal(res.total);
       setHasMore(res.has_more);
-      setOffset(newOffset + res.drafts.length);
+      setOffset((prev) => prev + res.drafts.length);
     } catch (err: any) {
-      toast({
-        title: "Failed to load drafts",
-        description: err.message,
-        variant: "destructive",
-      });
+      toast({ title: "Failed to load more drafts", description: err.message, variant: "destructive" });
     } finally {
-      setLoading(false);
       setLoadingMore(false);
     }
   };
 
-  useEffect(() => {
-    fetchDrafts();
-  }, [user]);
-
-  const handleSend = async (draft: DraftItem) => {
-    const message = editedMessages[draft.contact_id] || draft.draft_message;
-    setSendingIds((prev) => new Set(prev).add(draft.contact_id));
-
-    try {
-      await sendOutreach(draft.contact_id, message, draft.strategy_tag);
-      setSentIds((prev) => new Set(prev).add(draft.contact_id));
-      toast({ title: "Outreach recorded", description: `Message to ${draft.full_name} marked as sent.` });
-    } catch (err: any) {
+  const sendMutation = useMutation({
+    mutationFn: ({ contactId, message, strategyTag }: { contactId: string; message: string; strategyTag: string }) =>
+      sendOutreach(contactId, message, strategyTag),
+    onSuccess: (_data, { contactId }) => {
+      setSentIds((prev) => new Set(prev).add(contactId));
+      const draft = drafts.find((d) => d.contact_id === contactId);
+      toast({ title: "Outreach recorded", description: `Message to ${draft?.full_name ?? "contact"} marked as sent.` });
+    },
+    onError: (err: Error) => {
       toast({ title: "Send failed", description: err.message, variant: "destructive" });
-    } finally {
-      setSendingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(draft.contact_id);
-        return next;
-      });
-    }
+    },
+  });
+
+  const handleSend = (draft: DraftItem) => {
+    const message = editedMessages[draft.contact_id] || draft.draft_message;
+    sendMutation.mutate({ contactId: draft.contact_id, message, strategyTag: draft.strategy_tag });
   };
 
   const handleCopyAndOpen = (draft: DraftItem) => {
@@ -84,7 +92,7 @@ export default function CommandCenter() {
     toast({ title: "Copied to clipboard", description: "Message copied. LinkedIn opened in a new tab." });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -130,7 +138,9 @@ export default function CommandCenter() {
           <div className="space-y-4">
             {drafts.map((draft, i) => {
               const isSent = sentIds.has(draft.contact_id);
-              const isSending = sendingIds.has(draft.contact_id);
+              const isSending =
+                sendMutation.isPending &&
+                sendMutation.variables?.contactId === draft.contact_id;
 
               return (
                 <motion.div
@@ -235,7 +245,7 @@ export default function CommandCenter() {
               <div className="flex justify-center pt-2">
                 <Button
                   variant="outline"
-                  onClick={() => fetchDrafts(offset, true)}
+                  onClick={fetchMore}
                   disabled={loadingMore}
                   className="rounded-xl"
                 >

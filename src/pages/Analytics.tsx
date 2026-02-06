@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { BarChart3, Send, MessageCircle, TrendingUp, Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 import StatsCard from "@/components/StatsCard";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { getDashboard, type DashboardResponse } from "@/services/api";
+import { getDashboard } from "@/services/api";
 
 const strategyBarColors: Record<string, string> = {
   PAIN_POINT: "#ef4444",
@@ -18,20 +19,20 @@ const strategyBarColors: Record<string, string> = {
 export default function Analytics() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [data, setData] = useState<DashboardResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["dashboard", user?.id],
+    queryFn: () => getDashboard(user!.id),
+    enabled: !!user,
+  });
 
   useEffect(() => {
-    if (!user) return;
-    getDashboard(user.id)
-      .then(setData)
-      .catch((err) => {
-        toast({ title: "Failed to load analytics", description: err.message, variant: "destructive" });
-      })
-      .finally(() => setLoading(false));
-  }, [user]);
+    if (error) {
+      toast({ title: "Failed to load analytics", description: (error as Error).message, variant: "destructive" });
+    }
+  }, [error]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />

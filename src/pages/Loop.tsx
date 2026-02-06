@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, MessageCircle, Ghost, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { getFeedbackQueue, recordSwipe, type FeedbackItem } from "@/services/api";
@@ -18,41 +19,45 @@ const strategyColors: Record<string, string> = {
 export default function Loop() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [queue, setQueue] = useState<FeedbackItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [swipingId, setSwipingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchQueue = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const res = await getFeedbackQueue(user.id);
-      setQueue(res.pending);
-    } catch (err: any) {
-      toast({ title: "Failed to load feedback queue", description: err.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["feedbackQueue", user?.id],
+    queryFn: () => getFeedbackQueue(user!.id),
+    enabled: !!user,
+  });
+
+  const queue = data?.pending ?? [];
 
   useEffect(() => {
-    fetchQueue();
-  }, [user]);
-
-  const handleSwipe = async (outreachId: string, outcome: "REPLIED" | "GHOSTED" | "BOUNCED") => {
-    setSwipingId(outreachId);
-    try {
-      await recordSwipe(outreachId, outcome);
-      setQueue((prev) => prev.filter((item) => item.outreach_id !== outreachId));
-      toast({ title: "Feedback recorded", description: `Marked as ${outcome.toLowerCase()}.` });
-    } catch (err: any) {
-      toast({ title: "Swipe failed", description: err.message, variant: "destructive" });
-    } finally {
-      setSwipingId(null);
+    if (error) {
+      toast({ title: "Failed to load feedback queue", description: (error as Error).message, variant: "destructive" });
     }
-  };
+  }, [error]);
 
-  if (loading) {
+  const swipeMutation = useMutation({
+    mutationFn: ({ outreachId, outcome }: { outreachId: string; outcome: "REPLIED" | "GHOSTED" | "BOUNCED" }) =>
+      recordSwipe(outreachId, outcome),
+    onMutate: async ({ outreachId }) => {
+      await queryClient.cancelQueries({ queryKey: ["feedbackQueue", user?.id] });
+      const prev = queryClient.getQueryData<{ pending: FeedbackItem[] }>(["feedbackQueue", user?.id]);
+      queryClient.setQueryData(["feedbackQueue", user?.id], (old: { pending: FeedbackItem[] } | undefined) =>
+        old ? { pending: old.pending.filter((item) => item.outreach_id !== outreachId) } : old
+      );
+      return { prev };
+    },
+    onSuccess: (_data, { outcome }) => {
+      toast({ title: "Feedback recorded", description: `Marked as ${outcome.toLowerCase()}.` });
+    },
+    onError: (err: Error, _vars, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(["feedbackQueue", user?.id], context.prev);
+      }
+      toast({ title: "Swipe failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (isLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -97,7 +102,9 @@ export default function Loop() {
           <div className="space-y-4">
             <AnimatePresence mode="popLayout">
               {queue.map((item) => {
-                const isSwiping = swipingId === item.outreach_id;
+                const isSwiping =
+                  swipeMutation.isPending &&
+                  swipeMutation.variables?.outreachId === item.outreach_id;
 
                 return (
                   <motion.div
@@ -143,7 +150,7 @@ export default function Loop() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleSwipe(item.outreach_id, "REPLIED")}
+                        onClick={() => swipeMutation.mutate({ outreachId: item.outreach_id, outcome: "REPLIED" })}
                         disabled={isSwiping}
                         className="rounded-lg border-green-500/30 text-green-400 hover:bg-green-500/10 text-xs"
                       >
@@ -153,7 +160,7 @@ export default function Loop() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleSwipe(item.outreach_id, "GHOSTED")}
+                        onClick={() => swipeMutation.mutate({ outreachId: item.outreach_id, outcome: "GHOSTED" })}
                         disabled={isSwiping}
                         className="rounded-lg border-amber-500/30 text-amber-400 hover:bg-amber-500/10 text-xs"
                       >
@@ -163,7 +170,7 @@ export default function Loop() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleSwipe(item.outreach_id, "BOUNCED")}
+                        onClick={() => swipeMutation.mutate({ outreachId: item.outreach_id, outcome: "BOUNCED" })}
                         disabled={isSwiping}
                         className="rounded-lg border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs"
                       >
