@@ -26,6 +26,8 @@ export default function Analytics() {
     enabled: !!user,
   });
 
+  const [expandedStrategy, setExpandedStrategy] = useState<string | null>(null);
+
   useEffect(() => {
     if (error) {
       toast({ title: "Failed to load analytics", description: (error as Error).message, variant: "destructive" });
@@ -57,6 +59,7 @@ export default function Analytics() {
     sent: s.sent,
     replied: s.replied,
     rate: Math.round(s.reply_rate * 100),
+    replied_messages: s.replied_messages,
   }));
 
   return (
@@ -167,22 +170,72 @@ export default function Analytics() {
             {/* Strategy Table */}
             <div className="mt-4 space-y-2">
               {chartData.map((s) => (
-                <div
-                  key={s.tag}
-                  className="flex items-center justify-between rounded-lg bg-secondary/20 px-4 py-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: strategyBarColors[s.tag] || "#6b7280" }}
-                    />
-                    <span className="text-xs font-medium text-foreground">{s.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>{s.sent} sent</span>
-                    <span>{s.replied} replied</span>
-                    <span className="font-semibold text-foreground">{s.rate}%</span>
-                  </div>
+                <div key={s.tag}>
+                  <button
+                    onClick={() =>
+                      setExpandedStrategy(expandedStrategy === s.tag ? null : s.tag)
+                    }
+                    className="flex w-full items-center justify-between rounded-lg bg-secondary/20 px-4 py-2 transition-colors hover:bg-secondary/30"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: strategyBarColors[s.tag] || "#6b7280" }}
+                      />
+                      <span className="text-xs font-medium text-foreground">{s.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>{s.sent} sent</span>
+                      <span>{s.replied} replied</span>
+                      <span className="font-semibold text-foreground">{s.rate}%</span>
+                      {s.replied_messages.length > 0 && (
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${
+                            expandedStrategy === s.tag ? "rotate-180" : ""
+                          }`}
+                        />
+                      )}
+                    </div>
+                  </button>
+                  <AnimatePresence>
+                    {expandedStrategy === s.tag && s.replied_messages.length > 0 && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="ml-5 mt-1 space-y-1.5 border-l border-border pl-4 pb-1">
+                          {s.replied_messages.map((msg, i) => (
+                            <div
+                              key={i}
+                              className="rounded-lg bg-secondary/10 px-3 py-2"
+                            >
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs font-medium text-foreground">
+                                  {msg.full_name}
+                                </span>
+                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                  {msg.sent_at
+                                    ? new Date(msg.sent_at).toLocaleDateString()
+                                    : ""}
+                                </span>
+                              </div>
+                              {msg.company_name && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  {msg.company_name}
+                                </p>
+                              )}
+                              <p className="mt-1 text-xs leading-relaxed text-muted-foreground/80">
+                                {msg.message_body}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))}
             </div>
