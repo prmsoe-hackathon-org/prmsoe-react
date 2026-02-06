@@ -62,7 +62,7 @@ export default function IdentityIntake() {
       title: "Profile saved",
       description: "Your mission and intent have been captured.",
     });
-    navigate("/upload");
+    navigate("/app/upload");
   };
 
   if (loadingProfile) {

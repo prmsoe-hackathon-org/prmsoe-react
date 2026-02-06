@@ -25,6 +25,11 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/onboard" element={<Navigate to="/app/onboard" replace />} />
+          <Route path="/upload" element={<Navigate to="/app/upload" replace />} />
+          <Route path="/lab" element={<Navigate to="/app/lab" replace />} />
+          <Route path="/loop" element={<Navigate to="/app/loop" replace />} />
+          <Route path="/analytics" element={<Navigate to="/app/analytics" replace />} />
           <Route
             path="/app/*"
             element={
