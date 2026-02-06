@@ -17,11 +17,11 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Onboard", url: "/onboard", icon: User, step: 1 },
-  { title: "Upload", url: "/upload", icon: Upload, step: 2 },
-  { title: "Lab", url: "/lab", icon: FlaskConical, step: 3 },
-  { title: "Loop", url: "/loop", icon: RefreshCw, step: 4 },
-  { title: "Analytics", url: "/analytics", icon: BarChart3, step: 5 },
+  { title: "Onboard", url: "/app/onboard", icon: User, step: 1 },
+  { title: "Upload", url: "/app/upload", icon: Upload, step: 2 },
+  { title: "Lab", url: "/app/lab", icon: FlaskConical, step: 3 },
+  { title: "Loop", url: "/app/loop", icon: RefreshCw, step: 4 },
+  { title: "Analytics", url: "/app/analytics", icon: BarChart3, step: 5 },
 ];
 
 export function AppSidebar() {
@@ -56,7 +56,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {
-                const isActive = location.pathname === item.url;
+                const isActive = location.pathname === item.url || location.pathname.startsWith(`${item.url}/`);
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton

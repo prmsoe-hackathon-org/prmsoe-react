@@ -11,6 +11,7 @@ import NetworkIngest from "@/pages/NetworkIngest";
 import CommandCenter from "@/pages/CommandCenter";
 import Loop from "@/pages/Loop";
 import Analytics from "@/pages/Analytics";
+import Landing from "@/pages/Landing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,25 +23,27 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/auth" element={<Auth />} />
           <Route
-            path="/*"
+            path="/app/*"
             element={
               <ProtectedRoute>
                 <Layout>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/onboard" replace />} />
-                    <Route path="/onboard" element={<IdentityIntake />} />
-                    <Route path="/upload" element={<NetworkIngest />} />
-                    <Route path="/lab" element={<CommandCenter />} />
-                    <Route path="/loop" element={<Loop />} />
-                    <Route path="/analytics" element={<Analytics />} />
+                    <Route index element={<Navigate to="/app/onboard" replace />} />
+                    <Route path="onboard" element={<IdentityIntake />} />
+                    <Route path="upload" element={<NetworkIngest />} />
+                    <Route path="lab" element={<CommandCenter />} />
+                    <Route path="loop" element={<Loop />} />
+                    <Route path="analytics" element={<Analytics />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Layout>
               </ProtectedRoute>
             }
           />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

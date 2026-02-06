@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 
 const Index = () => {
-  return <Navigate to="/onboard" replace />;
+  return <Navigate to="/app/onboard" replace />;
 };
 
 export default Index;

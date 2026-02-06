@@ -24,7 +24,7 @@ export default function Auth() {
     );
   }
 
-  if (user) return <Navigate to="/onboard" replace />;
+  if (user) return <Navigate to="/app/onboard" replace />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
