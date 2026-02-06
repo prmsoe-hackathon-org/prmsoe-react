@@ -283,7 +283,7 @@ export default function NetworkIngest() {
       </motion.div>
 
       {/* Contacts List */}
-      {contactsTotal > 0 && (
+      {(contactsLoading || contactsTotal > 0) && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
