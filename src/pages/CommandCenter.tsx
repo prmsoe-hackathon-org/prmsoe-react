@@ -1,59 +1,96 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Users, TrendingUp, Zap, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { FlaskConical, ExternalLink, Copy, Send, Loader2, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import StatsCard from "@/components/StatsCard";
-import ContactDrawer from "@/components/ContactDrawer";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { getDrafts, sendOutreach, type DraftItem } from "@/services/api";
 
-interface Contact {
-  id: number;
-  name: string;
-  company: string;
-  role: string;
-  dateMet: string;
-  heat: "hot" | "warm" | "cold";
-  insight: string;
-  pitch: string;
-}
-
-const contacts: Contact[] = [
-  { id: 1, name: "Sarah Chen", company: "Stripe", role: "Engineering Lead", dateMet: "Jan 2025", heat: "hot", insight: "Targeting technical debt in Go microservices. Stripe's infrastructure team is hiring aggressively for platform reliability.", pitch: "Hi Sarah, I noticed Stripe's push into Go microservice reliability — I've been building tooling in exactly this space. Would love 15 min to share what we've shipped." },
-  { id: 2, name: "Marcus Johnson", company: "Vercel", role: "Solutions Architect", dateMet: "Feb 2025", heat: "warm", insight: "Exploring edge computing partnerships. Vercel looking to expand enterprise deployment options.", pitch: "Marcus, following Vercel's edge infra announcements — our platform integrates natively with your deployment pipeline. Quick demo?" },
-  { id: 3, name: "Priya Sharma", company: "Datadog", role: "PM Director", dateMet: "Mar 2025", heat: "hot", insight: "Building new observability vertical for AI/ML pipelines. Budget allocated for Q3.", pitch: "Priya, saw Datadog's new AI monitoring initiative. We've built ML pipeline observability that complements your stack perfectly." },
-  { id: 4, name: "Alex Rivera", company: "Figma", role: "Design Systems", dateMet: "Dec 2024", heat: "cold", insight: "Maintaining design token infrastructure. Low urgency, but potential for design-dev tooling.", pitch: "Alex, your design system work at Figma is impressive. We're exploring design-to-code pipelines — curious about your pain points?" },
-  { id: 5, name: "James Wu", company: "Notion", role: "Staff Engineer", dateMet: "Feb 2025", heat: "warm", insight: "Leading performance optimization initiative. Notion is investing in real-time collaboration infrastructure.", pitch: "James, Notion's real-time collab is world-class. We've solved similar CRDT scaling challenges — worth comparing notes?" },
-  { id: 6, name: "Emily Park", company: "Linear", role: "Founding Engineer", dateMet: "Jan 2025", heat: "hot", insight: "Scaling engineering team rapidly. Interested in developer productivity tooling and CI/CD optimization.", pitch: "Emily, Linear's growth trajectory is incredible. Our dev productivity platform has helped similar-stage teams ship 40% faster." },
-  { id: 7, name: "David Kim", company: "Supabase", role: "DevRel Lead", dateMet: "Nov 2024", heat: "warm", insight: "Expanding partnership ecosystem. Looking for complementary developer tools for joint GTM.", pitch: "David, Supabase's developer community is unmatched. We'd love to explore a joint integration that benefits both ecosystems." },
-  { id: 8, name: "Lisa Tanaka", company: "Anthropic", role: "Research Scientist", dateMet: "Mar 2025", heat: "hot", insight: "Working on safety evaluation frameworks. Anthropic actively seeking external tooling for evaluation pipelines.", pitch: "Lisa, your work on AI safety evaluation is fascinating. We've built infrastructure specifically for model evaluation pipelines at scale." },
-];
-
-const heatConfig = {
-  hot: { label: "Hot", className: "bg-red-500/20 text-red-400 border-red-500/30" },
-  warm: { label: "Warm", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  cold: { label: "Cold", className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+const strategyColors: Record<string, string> = {
+  PAIN_POINT: "bg-red-500/20 text-red-400 border-red-500/30",
+  VALIDATION_ASK: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  DIRECT_PITCH: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  MUTUAL_CONNECTION: "bg-green-500/20 text-green-400 border-green-500/30",
+  INDUSTRY_TREND: "bg-amber-500/20 text-amber-400 border-amber-500/30",
 };
 
 export default function CommandCenter() {
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [drafts, setDrafts] = useState<DraftItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [editedMessages, setEditedMessages] = useState<Record<string, string>>({});
+  const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
-  const filtered = contacts.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.role.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const fetchDrafts = async (newOffset = 0, append = false) => {
+    if (!user) return;
+    if (!append) setLoading(true);
+    else setLoadingMore(true);
 
-  const hotCount = contacts.filter((c) => c.heat === "hot").length;
+    try {
+      const res = await getDrafts(user.id, 20, newOffset);
+      setDrafts((prev) => (append ? [...prev, ...res.drafts] : res.drafts));
+      setTotal(res.total);
+      setHasMore(res.has_more);
+      setOffset(newOffset + res.drafts.length);
+    } catch (err: any) {
+      toast({
+        title: "Failed to load drafts",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDrafts();
+  }, [user]);
+
+  const handleSend = async (draft: DraftItem) => {
+    const message = editedMessages[draft.contact_id] || draft.draft_message;
+    setSendingIds((prev) => new Set(prev).add(draft.contact_id));
+
+    try {
+      await sendOutreach(draft.contact_id, message, draft.strategy_tag);
+      setSentIds((prev) => new Set(prev).add(draft.contact_id));
+      toast({ title: "Outreach recorded", description: `Message to ${draft.full_name} marked as sent.` });
+    } catch (err: any) {
+      toast({ title: "Send failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(draft.contact_id);
+        return next;
+      });
+    }
+  };
+
+  const handleCopyAndOpen = (draft: DraftItem) => {
+    const message = editedMessages[draft.contact_id] || draft.draft_message;
+    navigator.clipboard.writeText(message);
+    if (draft.linkedin_url) {
+      window.open(draft.linkedin_url, "_blank");
+    }
+    toast({ title: "Copied to clipboard", description: "Message copied. LinkedIn opened in a new tab." });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -69,106 +106,152 @@ export default function CommandCenter() {
               3
             </div>
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Command Center
+              Lab
             </span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Strategic Dashboard
+            Draft Lab
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            AI-powered insights across your entire network.
+            Review, edit, and send AI-generated outreach messages.{" "}
+            <span className="text-foreground font-medium">{total}</span> drafts ready.
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
-          <StatsCard
-            title="Total Contacts"
-            value={contacts.length}
-            subtitle="Across all sources"
-            icon={Users}
-            delay={0.1}
-          />
-          <StatsCard
-            title="High Momentum"
-            value={hotCount}
-            subtitle="Ready to engage"
-            icon={TrendingUp}
-            accent
-            delay={0.2}
-          />
-          <StatsCard
-            title="AI Signals"
-            value={12}
-            subtitle="New opportunities detected"
-            icon={Zap}
-            delay={0.3}
-          />
-        </div>
-
-        {/* Search */}
-        <div className="mb-4 flex items-center gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search contacts, companies, roles..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-10 border-border bg-input pl-10 text-foreground placeholder:text-muted-foreground/40 focus:border-primary"
-            />
+        {/* Draft Cards */}
+        {drafts.length === 0 ? (
+          <div className="glass rounded-xl border border-border p-8 text-center">
+            <FlaskConical className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              No drafts yet. Upload contacts to generate outreach messages.
+            </p>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            {drafts.map((draft, i) => {
+              const isSent = sentIds.has(draft.contact_id);
+              const isSending = sendingIds.has(draft.contact_id);
 
-        {/* Table */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="glass overflow-hidden rounded-xl border border-border"
-        >
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Company / Role</TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date Met</TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-wider text-muted-foreground text-right">Heat</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((contact) => (
-                <TableRow
-                  key={contact.id}
-                  onClick={() => setSelectedContact(contact)}
-                  className="cursor-pointer border-border/50 transition-colors hover:bg-secondary/30"
+              return (
+                <motion.div
+                  key={draft.contact_id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 * Math.min(i, 10) }}
+                  className={`glass rounded-xl border p-5 transition-all ${
+                    isSent ? "border-green-500/30 opacity-60" : "border-border"
+                  }`}
                 >
-                  <TableCell className="font-medium text-foreground">{contact.name}</TableCell>
-                  <TableCell>
+                  {/* Card Header */}
+                  <div className="mb-3 flex items-start justify-between">
                     <div>
-                      <span className="text-foreground">{contact.company}</span>
-                      <span className="ml-1 text-muted-foreground">· {contact.role}</span>
+                      <p className="text-sm font-semibold text-foreground">
+                        {draft.full_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {draft.raw_role} · {draft.company_name}
+                      </p>
                     </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{contact.dateMet}</TableCell>
-                  <TableCell className="text-right">
                     <Badge
                       variant="outline"
-                      className={`text-[10px] font-semibold uppercase tracking-wider ${heatConfig[contact.heat].className}`}
+                      className={`text-[10px] font-semibold uppercase tracking-wider ${
+                        strategyColors[draft.strategy_tag] || "bg-secondary text-muted-foreground"
+                      }`}
                     >
-                      {heatConfig[contact.heat].label}
+                      {draft.strategy_tag.replace(/_/g, " ")}
                     </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </motion.div>
+                  </div>
 
-        {/* Drawer */}
-        <ContactDrawer
-          contact={selectedContact}
-          onClose={() => setSelectedContact(null)}
-        />
+                  {/* Research Snippet */}
+                  {draft.research.news_summary && (
+                    <div className="mb-3 rounded-lg bg-secondary/30 p-3">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {draft.research.news_summary}
+                      </p>
+                      {draft.research.source_url && (
+                        <a
+                          href={draft.research.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Source
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Editable Draft */}
+                  <Textarea
+                    value={editedMessages[draft.contact_id] ?? draft.draft_message}
+                    onChange={(e) =>
+                      setEditedMessages((prev) => ({
+                        ...prev,
+                        [draft.contact_id]: e.target.value,
+                      }))
+                    }
+                    disabled={isSent}
+                    rows={3}
+                    className="mb-3 border-border bg-input text-sm text-foreground resize-none focus:border-primary focus:ring-primary/20"
+                  />
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCopyAndOpen(draft)}
+                      disabled={isSent}
+                      className="flex-1 rounded-lg border-border text-xs"
+                    >
+                      <Copy className="mr-1.5 h-3 w-3" />
+                      Copy & Open LinkedIn
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleSend(draft)}
+                      disabled={isSent || isSending}
+                      className="flex-1 rounded-lg bg-primary text-xs"
+                    >
+                      {isSending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : isSent ? (
+                        "Sent"
+                      ) : (
+                        <>
+                          <Send className="mr-1.5 h-3 w-3" />
+                          Mark as Sent
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </motion.div>
+              );
+            })}
+
+            {/* Load More */}
+            {hasMore && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => fetchDrafts(offset, true)}
+                  disabled={loadingMore}
+                  className="rounded-xl"
+                >
+                  {loadingMore ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <ChevronDown className="mr-2 h-4 w-4" />
+                      Load More
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </motion.div>
     </div>
   );

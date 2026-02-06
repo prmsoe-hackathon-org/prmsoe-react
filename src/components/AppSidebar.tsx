@@ -1,6 +1,7 @@
-import { User, Upload, Command, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { User, Upload, FlaskConical, RefreshCw, BarChart3, ChevronLeft, ChevronRight, Zap, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -16,14 +17,17 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Identity Intake", url: "/identity", icon: User, step: 1 },
-  { title: "Network Ingest", url: "/network", icon: Upload, step: 2 },
-  { title: "Command Center", url: "/command", icon: Command, step: 3 },
+  { title: "Onboard", url: "/onboard", icon: User, step: 1 },
+  { title: "Upload", url: "/upload", icon: Upload, step: 2 },
+  { title: "Lab", url: "/lab", icon: FlaskConical, step: 3 },
+  { title: "Loop", url: "/loop", icon: RefreshCw, step: 4 },
+  { title: "Analytics", url: "/analytics", icon: BarChart3, step: 5 },
 ];
 
 export function AppSidebar() {
   const location = useLocation();
   const { state, toggleSidebar } = useSidebar();
+  const { signOut } = useAuth();
   const collapsed = state === "collapsed";
 
   return (
@@ -85,7 +89,14 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="p-3 space-y-2">
+        <button
+          onClick={() => signOut()}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-secondary/50 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          {!collapsed && "Sign Out"}
+        </button>
         <button
           onClick={toggleSidebar}
           className="flex w-full items-center justify-center rounded-lg border border-border bg-secondary/50 py-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

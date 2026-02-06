@@ -7,14 +7,199 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          id: string
+          mission_statement: string
+          intent_type: Database["public"]["Enums"]["intent_type"]
+          created_at: string
+        }
+        Insert: {
+          id: string
+          mission_statement?: string
+          intent_type?: Database["public"]["Enums"]["intent_type"]
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          mission_statement?: string
+          intent_type?: Database["public"]["Enums"]["intent_type"]
+          created_at?: string
+        }
+        Relationships: []
+      }
+      contacts: {
+        Row: {
+          id: string
+          user_id: string
+          full_name: string | null
+          linkedin_url: string | null
+          raw_role: string | null
+          company_name: string | null
+          status: Database["public"]["Enums"]["contact_status"]
+          draft_message: string | null
+          strategy_tag: Database["public"]["Enums"]["strategy_tag"] | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          full_name?: string | null
+          linkedin_url?: string | null
+          raw_role?: string | null
+          company_name?: string | null
+          status?: Database["public"]["Enums"]["contact_status"]
+          draft_message?: string | null
+          strategy_tag?: Database["public"]["Enums"]["strategy_tag"] | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          full_name?: string | null
+          linkedin_url?: string | null
+          raw_role?: string | null
+          company_name?: string | null
+          status?: Database["public"]["Enums"]["contact_status"]
+          draft_message?: string | null
+          strategy_tag?: Database["public"]["Enums"]["strategy_tag"] | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      research: {
+        Row: {
+          id: string
+          contact_id: string
+          news_summary: string | null
+          pain_points: string | null
+          source_url: string | null
+          raw_response: Json | null
+          last_updated: string
+        }
+        Insert: {
+          id?: string
+          contact_id: string
+          news_summary?: string | null
+          pain_points?: string | null
+          source_url?: string | null
+          raw_response?: Json | null
+          last_updated?: string
+        }
+        Update: {
+          id?: string
+          contact_id?: string
+          news_summary?: string | null
+          pain_points?: string | null
+          source_url?: string | null
+          raw_response?: Json | null
+          last_updated?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      outreach_attempts: {
+        Row: {
+          id: string
+          contact_id: string
+          strategy_tag: Database["public"]["Enums"]["strategy_tag"] | null
+          message_body: string
+          sent_at: string
+          feedback_due_at: string | null
+          feedback_status: Database["public"]["Enums"]["feedback_status"]
+          outcome: Database["public"]["Enums"]["outcome_type"] | null
+        }
+        Insert: {
+          id?: string
+          contact_id: string
+          strategy_tag?: Database["public"]["Enums"]["strategy_tag"] | null
+          message_body: string
+          sent_at?: string
+          feedback_due_at?: string | null
+          feedback_status?: Database["public"]["Enums"]["feedback_status"]
+          outcome?: Database["public"]["Enums"]["outcome_type"] | null
+        }
+        Update: {
+          id?: string
+          contact_id?: string
+          strategy_tag?: Database["public"]["Enums"]["strategy_tag"] | null
+          message_body?: string
+          sent_at?: string
+          feedback_due_at?: string | null
+          feedback_status?: Database["public"]["Enums"]["feedback_status"]
+          outcome?: Database["public"]["Enums"]["outcome_type"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_attempts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      enrichment_jobs: {
+        Row: {
+          id: string
+          user_id: string
+          total_contacts: number | null
+          processed_count: number
+          failed_count: number
+          status: Database["public"]["Enums"]["job_status"]
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          total_contacts?: number | null
+          processed_count?: number
+          failed_count?: number
+          status?: Database["public"]["Enums"]["job_status"]
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          total_contacts?: number | null
+          processed_count?: number
+          failed_count?: number
+          status?: Database["public"]["Enums"]["job_status"]
+          created_at?: string
+          completed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrichment_jobs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +208,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      intent_type: "VALIDATION" | "SALES"
+      contact_status: "NEW" | "RESEARCHING" | "DRAFT_READY" | "SENT" | "ARCHIVED"
+      strategy_tag: "PAIN_POINT" | "VALIDATION_ASK" | "DIRECT_PITCH" | "MUTUAL_CONNECTION" | "INDUSTRY_TREND"
+      feedback_status: "PENDING" | "COMPLETED"
+      outcome_type: "REPLIED" | "GHOSTED" | "BOUNCED"
+      job_status: "RUNNING" | "COMPLETED" | "FAILED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +340,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      intent_type: ["VALIDATION", "SALES"],
+      contact_status: ["NEW", "RESEARCHING", "DRAFT_READY", "SENT", "ARCHIVED"],
+      strategy_tag: ["PAIN_POINT", "VALIDATION_ASK", "DIRECT_PITCH", "MUTUAL_CONNECTION", "INDUSTRY_TREND"],
+      feedback_status: ["PENDING", "COMPLETED"],
+      outcome_type: ["REPLIED", "GHOSTED", "BOUNCED"],
+      job_status: ["RUNNING", "COMPLETED", "FAILED"],
+    },
   },
 } as const

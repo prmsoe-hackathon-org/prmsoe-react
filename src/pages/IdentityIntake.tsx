@@ -1,59 +1,77 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Upload, MapPin, Briefcase, Compass, ArrowRight, FileText, X } from "lucide-react";
+import { Target, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useToast } from "@/hooks/use-toast";
-
-const businessModels = [
-  { value: "product", label: "Product", icon: "📦" },
-  { value: "service", label: "Service", icon: "🔧" },
-  { value: "content", label: "Content", icon: "📝" },
-  { value: "employment", label: "Employment", icon: "💼" },
-];
-
-const phaseLabels = ["Exploring Ideas", "Already have a Product"];
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function IdentityIntake() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [city, setCity] = useState("");
-  const [businessModel, setBusinessModel] = useState("");
-  const [phase, setPhase] = useState([0]);
-  const [isDragging, setIsDragging] = useState(false);
+  const { user } = useAuth();
+  const [missionStatement, setMissionStatement] = useState("");
+  const [intentType, setIntentType] = useState<"VALIDATION" | "SALES">("VALIDATION");
+  const [saving, setSaving] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file && (file.type === "application/pdf" || file.type === "text/plain")) {
-      setResumeFile(file);
-    } else {
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("mission_statement, intent_type")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setMissionStatement(data.mission_statement || "");
+          setIntentType((data.intent_type as "VALIDATION" | "SALES") || "VALIDATION");
+        }
+        setLoadingProfile(false);
+      });
+  }, [user]);
+
+  const handleSubmit = async () => {
+    if (!user) return;
+    setSaving(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({
+        id: user.id,
+        mission_statement: missionStatement,
+        intent_type: intentType,
+      });
+
+    setSaving(false);
+
+    if (error) {
       toast({
-        title: "Invalid file type",
-        description: "Please upload a PDF or text file.",
+        title: "Error saving profile",
+        description: error.message,
         variant: "destructive",
       });
+      return;
     }
-  };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setResumeFile(file);
-  };
-
-  const handleSubmit = () => {
     toast({
       title: "Profile saved",
-      description: "Your identity context has been captured.",
+      description: "Your mission and intent have been captured.",
     });
-    navigate("/network");
+    navigate("/upload");
   };
+
+  if (loadingProfile) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -69,173 +87,100 @@ export default function IdentityIntake() {
               1
             </div>
             <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Step 1 of 3
+              Step 1 of 5
             </span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Who are you?
+            What's your mission?
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Tell us about yourself so our AI can build your strategic profile.
+            Tell us what you're building so our AI can craft personalized outreach.
           </p>
         </div>
 
         {/* Form */}
         <div className="space-y-8">
-          {/* Resume Upload */}
+          {/* Mission Statement */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
             <Label className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-              <FileText className="h-4 w-4 text-primary" />
-              Resume Upload
+              <Target className="h-4 w-4 text-primary" />
+              Mission Statement
             </Label>
-            <div
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-              className={`glass relative flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all duration-300 ${
-                isDragging
-                  ? "border-primary bg-primary/5 glow-primary"
-                  : resumeFile
-                  ? "border-primary/30 bg-primary/5"
-                  : "border-border hover:border-muted-foreground/40"
-              }`}
-            >
-              <input
-                type="file"
-                accept=".pdf,.txt"
-                onChange={handleFileSelect}
-                className="absolute inset-0 cursor-pointer opacity-0"
-              />
-              {resumeFile ? (
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
-                    <FileText className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{resumeFile.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(resumeFile.size / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => { e.preventDefault(); setResumeFile(null); }}
-                    className="ml-2 rounded-full p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <Upload className="mb-3 h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Drop your resume here
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground/60">
-                    PDF or TXT • Max 10MB
-                  </p>
-                </>
-              )}
-            </div>
+            <Textarea
+              placeholder="e.g., Building an AI-powered tool that helps sales teams prioritize warm leads using LinkedIn data..."
+              value={missionStatement}
+              onChange={(e) => setMissionStatement(e.target.value)}
+              rows={5}
+              className="glass border-border bg-input text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:ring-primary/20 resize-none"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              The more specific, the better your AI-generated outreach will be.
+            </p>
           </motion.div>
 
-          {/* Current City */}
+          {/* Intent Type */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
             <Label className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-              <MapPin className="h-4 w-4 text-primary" />
-              Current City
-            </Label>
-            <Input
-              placeholder="e.g., San Francisco, CA"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="glass h-12 border-border bg-input text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:ring-primary/20"
-            />
-          </motion.div>
-
-          {/* Business Model */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Label className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-              <Briefcase className="h-4 w-4 text-primary" />
-              Business Model
+              Intent
             </Label>
             <ToggleGroup
               type="single"
-              value={businessModel}
-              onValueChange={(val) => val && setBusinessModel(val)}
+              value={intentType}
+              onValueChange={(val) => {
+                if (val === "VALIDATION" || val === "SALES") setIntentType(val);
+              }}
               className="grid grid-cols-2 gap-3"
             >
-              {businessModels.map((model) => (
-                <ToggleGroupItem
-                  key={model.value}
-                  value={model.value}
-                  className="glass flex h-auto flex-col gap-1 rounded-xl border border-border px-4 py-4 text-muted-foreground transition-all data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground data-[state=on]:glow-primary hover:bg-secondary/50"
-                >
-                  <span className="text-xl">{model.icon}</span>
-                  <span className="text-sm font-medium">{model.label}</span>
-                </ToggleGroupItem>
-              ))}
+              <ToggleGroupItem
+                value="VALIDATION"
+                className="glass flex h-auto flex-col gap-1 rounded-xl border border-border px-4 py-4 text-muted-foreground transition-all data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground data-[state=on]:glow-primary hover:bg-secondary/50"
+              >
+                <span className="text-sm font-medium">Validation</span>
+                <span className="text-xs text-muted-foreground">
+                  Get feedback on your idea
+                </span>
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="SALES"
+                className="glass flex h-auto flex-col gap-1 rounded-xl border border-border px-4 py-4 text-muted-foreground transition-all data-[state=on]:border-primary/50 data-[state=on]:bg-primary/10 data-[state=on]:text-foreground data-[state=on]:glow-primary hover:bg-secondary/50"
+              >
+                <span className="text-sm font-medium">Sales</span>
+                <span className="text-xs text-muted-foreground">
+                  Sell a product or service
+                </span>
+              </ToggleGroupItem>
             </ToggleGroup>
-          </motion.div>
-
-          {/* Phase Slider */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <Label className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-              <Compass className="h-4 w-4 text-primary" />
-              Phase
-            </Label>
-            <div className="glass rounded-xl border border-border p-6">
-              <Slider
-                value={phase}
-                onValueChange={setPhase}
-                max={1}
-                step={1}
-                className="mb-4"
-              />
-              <div className="flex justify-between">
-                {phaseLabels.map((label, i) => (
-                  <span
-                    key={label}
-                    className={`text-xs font-medium transition-colors ${
-                      phase[0] === i ? "text-primary" : "text-muted-foreground/50"
-                    }`}
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
           </motion.div>
 
           {/* Submit */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.3 }}
             className="pt-4"
           >
             <Button
               onClick={handleSubmit}
+              disabled={saving || !missionStatement.trim()}
               className="group h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-all hover:glow-primary-strong"
               size="lg"
             >
-              Save & Continue
-              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Save & Continue
+                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </>
+              )}
             </Button>
           </motion.div>
         </div>

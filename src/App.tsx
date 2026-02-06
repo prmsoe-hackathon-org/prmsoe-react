@@ -4,9 +4,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Layout from "@/components/Layout";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import Auth from "@/pages/Auth";
 import IdentityIntake from "@/pages/IdentityIntake";
 import NetworkIngest from "@/pages/NetworkIngest";
 import CommandCenter from "@/pages/CommandCenter";
+import Loop from "@/pages/Loop";
+import Analytics from "@/pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -17,15 +21,27 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Navigate to="/identity" replace />} />
-            <Route path="/identity" element={<IdentityIntake />} />
-            <Route path="/network" element={<NetworkIngest />} />
-            <Route path="/command" element={<CommandCenter />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/onboard" replace />} />
+                    <Route path="/onboard" element={<IdentityIntake />} />
+                    <Route path="/upload" element={<NetworkIngest />} />
+                    <Route path="/lab" element={<CommandCenter />} />
+                    <Route path="/loop" element={<Loop />} />
+                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
