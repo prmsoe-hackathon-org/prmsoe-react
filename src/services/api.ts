@@ -99,6 +99,21 @@ export interface AutoDetectResponse {
   count: number;
 }
 
+export interface AgiSessionResponse {
+  session_id: string;
+  vnc_url: string;
+}
+
+export interface AgiMessage {
+  id: number;
+  type: "THOUGHT" | "QUESTION" | "DONE" | "ERROR" | "LOG";
+  content: string;
+}
+
+export interface AgiMessagesResponse {
+  messages: AgiMessage[];
+}
+
 export interface DashboardResponse {
   total_sent: number;
   total_completed: number;
@@ -204,4 +219,21 @@ export function autoDetectReplies(userId: string): Promise<AutoDetectResponse> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user_id: userId }),
   });
+}
+
+export function createAgiSession(): Promise<AgiSessionResponse> {
+  return request("/agi/session", { method: "POST" });
+}
+
+export function startLinkedInExport(sessionId: string): Promise<{ ok: boolean }> {
+  return request(`/agi/session/${sessionId}/export-connections`, {
+    method: "POST",
+  });
+}
+
+export function getAgiMessages(
+  sessionId: string,
+  afterId: number
+): Promise<AgiMessagesResponse> {
+  return request(`/agi/session/${sessionId}/messages?after_id=${afterId}`);
 }

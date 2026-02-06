@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Upload, ArrowRight, CheckCircle2, FileSpreadsheet, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Upload, ArrowRight, CheckCircle2, FileSpreadsheet, Loader2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { uploadCSV, getJobStatus, getContacts, ContactItem } from "@/services/api";
+import { uploadCSV, getJobStatus, getContacts, ContactItem, createAgiSession, startLinkedInExport, getAgiMessages, AgiMessage } from "@/services/api";
 
 type UploadState = "idle" | "uploading" | "enriching" | "done" | "error";
+type AgiState = "agi_idle" | "agi_creating" | "agi_login" | "agi_exporting" | "agi_done";
 
 export default function NetworkIngest() {
   const navigate = useNavigate();
@@ -22,6 +23,15 @@ export default function NetworkIngest() {
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // AGI state
+  const [agiExpanded, setAgiExpanded] = useState(false);
+  const [agiState, setAgiState] = useState<AgiState>("agi_idle");
+  const [agiSessionId, setAgiSessionId] = useState("");
+  const [agiMessages, setAgiMessages] = useState<AgiMessage[]>([]);
+  const [agiError, setAgiError] = useState("");
+  const agiPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const agiLastMsgId = useRef(0);
 
   const PAGE_SIZE = 10;
   const [contacts, setContacts] = useState<ContactItem[]>([]);
@@ -55,8 +65,61 @@ export default function NetworkIngest() {
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (agiPollRef.current) clearInterval(agiPollRef.current);
     };
   }, []);
+
+  const handleAgiStart = async () => {
+    setAgiState("agi_creating");
+    setAgiError("");
+    setAgiMessages([]);
+    agiLastMsgId.current = 0;
+    try {
+      const session = await createAgiSession();
+      setAgiSessionId(session.session_id);
+      setAgiState("agi_login");
+      window.open(session.vnc_url, "_blank");
+    } catch (err: any) {
+      setAgiError(err.message || "Failed to create AGI session");
+      setAgiState("agi_idle");
+    }
+  };
+
+  const handleAgiLoggedIn = async () => {
+    setAgiState("agi_exporting");
+    try {
+      await startLinkedInExport(agiSessionId);
+    } catch (err: any) {
+      setAgiError(err.message || "Failed to start export task");
+      setAgiState("agi_idle");
+      return;
+    }
+
+    // Start polling for AGI messages
+    agiPollRef.current = setInterval(async () => {
+      try {
+        const res = await getAgiMessages(agiSessionId, agiLastMsgId.current);
+        if (res.messages.length > 0) {
+          setAgiMessages((prev) => [...prev, ...res.messages]);
+          agiLastMsgId.current = res.messages[res.messages.length - 1].id;
+
+          // Check for terminal states
+          const done = res.messages.find((m) => m.type === "DONE");
+          const error = res.messages.find((m) => m.type === "ERROR");
+          if (done) {
+            if (agiPollRef.current) clearInterval(agiPollRef.current);
+            setAgiState("agi_done");
+          } else if (error) {
+            if (agiPollRef.current) clearInterval(agiPollRef.current);
+            setAgiError(error.content);
+            setAgiState("agi_idle");
+          }
+        }
+      } catch {
+        // Polling error — keep trying
+      }
+    }, 3000);
+  };
 
   const handleFile = async (file: File) => {
     if (!user) return;
@@ -157,6 +220,121 @@ export default function NetworkIngest() {
             Upload your LinkedIn CSV export. We'll research each contact and generate personalized drafts.
           </p>
         </div>
+
+        {/* AGI LinkedIn Export Helper */}
+        {uploadState === "idle" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mb-6"
+          >
+            <button
+              onClick={() => setAgiExpanded((v) => !v)}
+              className="glass flex w-full items-center justify-between rounded-xl border border-border px-5 py-4 text-left transition-colors hover:bg-muted/30"
+            >
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Don't have a CSV? Let us get it for you
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  We'll automate the LinkedIn data export request
+                </p>
+              </div>
+              {agiExpanded ? (
+                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )}
+            </button>
+
+            {agiExpanded && (
+              <div className="glass mt-2 rounded-xl border border-border p-5 space-y-4">
+                {/* agi_idle */}
+                {agiState === "agi_idle" && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      We'll open a secure browser session where you log into LinkedIn. Then our agent will navigate to the data export page and request your connections CSV.
+                    </p>
+                    {agiError && (
+                      <p className="text-xs text-destructive">{agiError}</p>
+                    )}
+                    <Button
+                      onClick={handleAgiStart}
+                      className="h-10 w-full rounded-lg bg-primary text-sm font-semibold text-primary-foreground"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Get my CSV from LinkedIn
+                    </Button>
+                  </div>
+                )}
+
+                {/* agi_creating */}
+                {agiState === "agi_creating" && (
+                  <div className="flex items-center gap-3 py-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Creating secure browser session...</p>
+                  </div>
+                )}
+
+                {/* agi_login */}
+                {agiState === "agi_login" && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      A new tab has opened with a secure browser. Log into your LinkedIn account there, then come back and click the button below.
+                    </p>
+                    <Button
+                      onClick={handleAgiLoggedIn}
+                      className="h-10 w-full rounded-lg bg-primary text-sm font-semibold text-primary-foreground"
+                    >
+                      I'm logged in
+                    </Button>
+                  </div>
+                )}
+
+                {/* agi_exporting */}
+                {agiState === "agi_exporting" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+                      <p className="text-sm font-medium text-foreground">
+                        Navigating LinkedIn export flow...
+                      </p>
+                    </div>
+                    {agiMessages.filter((m) => m.type === "THOUGHT").length > 0 && (
+                      <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg bg-muted/30 px-3 py-2">
+                        {agiMessages
+                          .filter((m) => m.type === "THOUGHT")
+                          .map((m) => (
+                            <p key={m.id} className="text-xs text-muted-foreground">
+                              {m.content}
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* agi_done */}
+                {agiState === "agi_done" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Export requested!
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          LinkedIn will email you the download link. Upload the CSV below when you receive it.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* Upload Zone */}
         {uploadState === "idle" && (
