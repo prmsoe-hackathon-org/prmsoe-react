@@ -66,10 +66,10 @@ export default function Auth() {
             <Zap className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            PRMSOE
+            PrimRose
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Strategy Engine
+            Personal Relationship Managing • Strategic Opportunity Engine
           </p>
         </div>
 

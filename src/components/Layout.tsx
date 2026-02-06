@@ -13,7 +13,7 @@ export default function Layout({ children }: LayoutProps) {
         <main className="flex-1 overflow-auto">
           <div className="sticky top-0 z-30 flex h-12 items-center border-b border-border bg-background/80 px-4 backdrop-blur-md md:hidden">
             <SidebarTrigger />
-            <span className="ml-3 text-sm font-semibold text-foreground">PRMSOE</span>
+            <span className="ml-3 text-sm font-semibold text-foreground">PrimRose</span>
           </div>
           <div className="p-6 lg:p-8">
             {children}

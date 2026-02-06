@@ -39,9 +39,9 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="text-sm font-bold tracking-tight text-foreground">PRMSOE</span>
+              <span className="text-sm font-bold tracking-tight text-foreground">PrimRose</span>
               <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                Strategy Engine
+                Personal Relationship Managing • Strategic Opportunity Engine
               </span>
             </div>
           )}

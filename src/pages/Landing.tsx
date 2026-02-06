@@ -79,7 +79,7 @@ export default function Landing() {
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">PRMSOE</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">PrimRose</p>
               <p className="text-base font-semibold">Personal Relationship Managing • Strategic Opportunity Engine</p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function Landing() {
               Turn your network into a launchpad for your next startup idea.
             </h1>
             <p className="text-lg text-muted-foreground md:text-xl">
-              PRMSOE helps software engineers tap into their relationships to discover, validate, and prioritize
+              PrimRose helps software engineers tap into their relationships to discover, validate, and prioritize
               high-signal opportunities before writing a line of production code.
             </p>
             <div className="flex flex-wrap items-center gap-3">
@@ -165,7 +165,7 @@ export default function Landing() {
       <section id="features" className="mx-auto w-full max-w-6xl px-6 py-20">
         <div className="mb-10 flex flex-col gap-3">
           <Badge className="w-fit" variant="secondary">
-            Why PRMSOE
+            Why PrimRose
           </Badge>
           <h2 className="text-3xl font-semibold">A relationship-first engine for product discovery</h2>
           <p className="text-muted-foreground">
@@ -196,7 +196,7 @@ export default function Landing() {
             </Badge>
             <h2 className="text-3xl font-semibold">From signal to validated opportunity in days</h2>
             <p className="text-muted-foreground">
-              PRMSOE keeps your discovery process structured so you can move fast without losing context.
+              PrimRose keeps your discovery process structured so you can move fast without losing context.
             </p>
           </div>
           <div className="grid gap-6 lg:grid-cols-3">
@@ -223,7 +223,7 @@ export default function Landing() {
             </Badge>
             <h2 className="text-3xl font-semibold">A strategic advantage for technical founders</h2>
             <p className="text-muted-foreground">
-              Whether you are exploring a side project or full-time founder mode, PRMSOE makes sure your network
+              Whether you are exploring a side project or full-time founder mode, PrimRose makes sure your network
               turns into verified demand instead of random chats.
             </p>
             <div className="grid gap-3">
@@ -241,7 +241,7 @@ export default function Landing() {
           </div>
           <Card className="border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background">
             <CardHeader className="space-y-3">
-              <CardTitle className="text-2xl">PRMSOE success loop</CardTitle>
+              <CardTitle className="text-2xl">PrimRose success loop</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Align your network, narrative, and next steps with a single source of truth.
               </p>
@@ -272,7 +272,7 @@ export default function Landing() {
             </Badge>
             <h2 className="text-3xl font-semibold">Make your next idea impossible to ignore.</h2>
             <p className="text-muted-foreground">
-              PRMSOE keeps your opportunity pipeline sharp so you can move from conversations to product-market fit.
+              PrimRose keeps your opportunity pipeline sharp so you can move from conversations to product-market fit.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
