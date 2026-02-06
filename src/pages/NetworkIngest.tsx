@@ -44,9 +44,13 @@ export default function NetworkIngest() {
     }
   };
 
+  const hasFetched = useRef(false);
   useEffect(() => {
-    fetchContacts(contactsPage);
-  }, [contactsPage, user]);
+    if (!hasFetched.current && user) {
+      hasFetched.current = true;
+      fetchContacts(0);
+    }
+  }, [user]);
 
   useEffect(() => {
     return () => {
@@ -293,6 +297,39 @@ export default function NetworkIngest() {
                 ({contactsTotal})
               </span>
             </h2>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={contactsPage === 0}
+                  onClick={() => {
+                    const p = contactsPage - 1;
+                    setContactsPage(p);
+                    fetchContacts(p);
+                  }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Page {contactsPage + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={contactsPage >= totalPages - 1}
+                  onClick={() => {
+                    const p = contactsPage + 1;
+                    setContactsPage(p);
+                    fetchContacts(p);
+                  }}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {contactsLoading ? (
@@ -332,32 +369,7 @@ export default function NetworkIngest() {
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={contactsPage === 0}
-                onClick={() => setContactsPage((p) => p - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {contactsPage + 1} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                disabled={contactsPage >= totalPages - 1}
-                onClick={() => setContactsPage((p) => p + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+
         </motion.div>
       )}
     </div>
