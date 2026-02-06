@@ -214,7 +214,7 @@ export default function NetworkIngest() {
             </div>
 
             <Button
-              onClick={() => navigate("/lab")}
+              onClick={() => navigate("/app/lab")}
               className="group h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition-all hover:glow-primary-strong"
               size="lg"
             >
