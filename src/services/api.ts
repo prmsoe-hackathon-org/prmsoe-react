@@ -205,3 +205,11 @@ export function autoDetectReplies(userId: string): Promise<AutoDetectResponse> {
     body: JSON.stringify({ user_id: userId }),
   });
 }
+
+export function composioDisconnect(userId: string): Promise<{ ok: boolean }> {
+  return request("/composio/disconnect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId }),
+  });
+}

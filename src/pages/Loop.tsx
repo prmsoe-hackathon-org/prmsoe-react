@@ -1,4 +1,5 @@
-import { useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, MessageCircle, Ghost, AlertTriangle, Loader2, Mail, CheckCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import {
   recordSwipe,
   getComposioStatus,
   composioConnect,
+  composioDisconnect,
   autoDetectReplies,
   type FeedbackItem,
 } from "@/services/api";
@@ -24,9 +26,33 @@ const strategyColors: Record<string, string> = {
 };
 
 export default function Loop() {
+  const [searchParams] = useSearchParams();
+  const [isOAuthCallback, setIsOAuthCallback] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  // Handle OAuth callback — when Composio redirects back with ?status=success
+  useEffect(() => {
+    const status = searchParams.get("status");
+    if (status === "success") {
+      setIsOAuthCallback(true);
+    }
+  }, [searchParams]);
+
+  // If this tab is an OAuth callback, show a simple success message
+  if (isOAuthCallback) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
+        <CheckCircle className="h-12 w-12 text-green-400" />
+        <h2 className="text-xl font-semibold text-foreground">Gmail Connected!</h2>
+        <p className="text-sm text-muted-foreground">You can close this tab and return to the app.</p>
+        <Button variant="outline" size="sm" onClick={() => window.close()} className="mt-2">
+          Close Tab
+        </Button>
+      </div>
+    );
+  }
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["feedbackQueue", user?.id],
@@ -63,6 +89,18 @@ export default function Loop() {
     },
     onError: (err: Error) => {
       toast({ title: "Failed to connect Gmail", description: err.message, variant: "destructive" });
+    },
+  });
+
+  // Disconnect Gmail mutation
+  const disconnectMutation = useMutation({
+    mutationFn: () => composioDisconnect(user!.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["composioStatus", user?.id] });
+      toast({ title: "Gmail disconnected" });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Failed to disconnect Gmail", description: err.message, variant: "destructive" });
     },
   });
 
@@ -174,20 +212,34 @@ export default function Loop() {
                 <CheckCircle className="h-4 w-4 text-green-400" />
                 <span className="text-xs font-medium text-green-400">Gmail connected</span>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => scanMutation.mutate()}
-                disabled={scanMutation.isPending}
-                className="rounded-lg border-green-500/30 text-green-400 hover:bg-green-500/10 text-xs"
-              >
-                {scanMutation.isPending ? (
-                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                ) : (
-                  <Search className="mr-1.5 h-3 w-3" />
-                )}
-                Scan for Replies
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => scanMutation.mutate()}
+                  disabled={scanMutation.isPending}
+                  className="rounded-lg border-green-500/30 text-green-400 hover:bg-green-500/10 text-xs"
+                >
+                  {scanMutation.isPending ? (
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Search className="mr-1.5 h-3 w-3" />
+                  )}
+                  Scan for Replies
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => disconnectMutation.mutate()}
+                  disabled={disconnectMutation.isPending}
+                  className="rounded-lg text-xs text-muted-foreground hover:text-red-400"
+                >
+                  {disconnectMutation.isPending && (
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  )}
+                  Disconnect
+                </Button>
+              </div>
             </div>
           )}
         </div>
