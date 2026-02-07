@@ -190,6 +190,18 @@ export default function NetworkIngest() {
               <p className="mt-1 text-xs text-muted-foreground/60">
                 or click to browse
               </p>
+              <p className="mt-3 text-xs text-muted-foreground/70">
+                Need your LinkedIn export? Get it here: {" "}
+                <a
+                  href="https://www.linkedin.com/mypreferences/d/download-my-data"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Download your LinkedIn data
+                </a>
+                .
+              </p>
             </div>
           </motion.div>
         )}
